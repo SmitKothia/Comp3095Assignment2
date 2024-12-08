@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  postgres-container:
+    image: postgres:latest
+    container_name: postgres-container
+    environment:
+      POSTGRES_USER:
+      POSTGRES_PASSWORD:
+      POSTGRES_DB: room_service_db
+    ports:
+      - "5432:5432"
+    networks:
+      - common-network
+
+  room-service-container:
+    build:
+      context: .
+    container_name: room-service-container
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-container:5432/room_service_db
+      SPRING_DATASOURCE_USERNAME: 
+      SPRING_DATASOURCE_PASSWORD: 
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres-container
+    networks:
+      - common-network
+
+networks:
+  default:
+    name: common-network
+    external: true

@@ -1,0 +1,30 @@
+version: '3.8'
+
+networks:
+  default:
+    name: common-network
+    external: true
+
+services:
+  mongodb-approval:
+    image: mongo:latest
+    container_name: mongodb-approval-container
+    ports:
+      - "27020:27017"
+    networks:
+      - common-network
+
+  approval-service:
+    build:
+      context: .
+    container_name: approval-service-container
+    ports:
+      - "8085:8085"
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb-approval:27017/approval-service-db
+      - EVENT_SERVICE_URL=http://event-service:8083/api/events
+      - USER_SERVICE_URL=http://user-service:8081/api/users
+    depends_on:
+      - mongodb-approval
+    networks:
+      - common-network

@@ -1,0 +1,28 @@
+version: '3.8'
+
+networks:
+  default:
+    name: common-network
+    external: true
+
+services:
+  mongodb-event:
+    image: mongo:latest
+    container_name: mongodb-event-container
+    ports:
+      - "27018:27017"
+    networks:
+      - common-network
+
+  event-service:
+    build:
+      context: .
+    container_name: event-service-container
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb-event:27017/event-service-db
+    depends_on:
+      - mongodb-event
+    networks:
+      - common-network

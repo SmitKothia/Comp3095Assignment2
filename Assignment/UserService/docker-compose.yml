@@ -1,0 +1,28 @@
+version: '3.8'
+
+networks:
+  default:
+    name: common-network
+    external: true
+
+services:
+  mongodb-user:
+    image: mongo:latest
+    container_name: mongodb-user-container
+    ports:
+      - "27017:27017"
+    networks:
+      - common-network
+
+  user-service:
+    build:
+      context: .
+    container_name: user-service-container
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb-user:27017/user-service-db
+    depends_on:
+      - mongodb-user
+    networks:
+      - common-network

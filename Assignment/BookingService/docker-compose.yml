@@ -1,0 +1,28 @@
+version: '3.8'
+
+networks:
+  default:
+    name: common-network
+    external: true
+
+services:
+  mongodb-booking:
+    image: mongo:latest
+    container_name: mongodb-booking-container
+    ports:
+      - "27019:27017"
+    networks:
+      - common-network
+
+  booking-service:
+    build:
+      context: .
+    container_name: booking-service-container
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb-booking:27017/booking-service-db
+    depends_on:
+      - mongodb-booking
+    networks:
+      - common-network

@@ -1,0 +1,197 @@
+version: '3.8'
+
+networks:
+  common-network:
+    driver: bridge
+
+services:
+  # Kafka Services
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper-container
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - common-network
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka-container
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    networks:
+      - common-network
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:latest
+    container_name: schema-registry-container
+    depends_on:
+      - kafka
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+    ports:
+      - "8088:8088"
+    networks:
+      - common-network
+
+  # UserService
+  mongodb-user:
+    image: mongo:latest
+    container_name: mongodb-user-container
+    ports:
+      - "27017:27017"
+    networks:
+      - common-network
+
+  user-service:
+    build:
+      context: ./UserService
+    container_name: user-service-container
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb-user:27017/user-service-db
+    depends_on:
+      - mongodb-user
+    networks:
+      - common-network
+
+  # RoomService
+  postgres-container:
+    image: postgres:latest
+    container_name: postgres-container
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: DevMot
+      POSTGRES_DB: room_service_db
+    ports:
+      - "5432:5432"
+    networks:
+      - common-network
+
+  room-service-container:
+    build:
+      context: ./RoomService
+    container_name: room-service-container
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-container:5432/room_service_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: DevMot
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres-container
+    networks:
+      - common-network
+
+  # EventService
+  mongodb-event:
+    image: mongo:latest
+    container_name: mongodb-event-container
+    ports:
+      - "27018:27017"
+    networks:
+      - common-network
+
+  event-service:
+    build:
+      context: ./EventService
+    container_name: event-service-container
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb-event:27017/event-service-db
+    depends_on:
+      - mongodb-event
+    networks:
+      - common-network
+
+  # BookingService
+  mongodb-booking:
+    image: mongo:latest
+    container_name: mongodb-booking-container
+    ports:
+      - "27019:27017"
+    networks:
+      - common-network
+
+  booking-service:
+    build:
+      context: ./BookingService
+    container_name: booking-service-container
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb-booking:27017/booking-service-db
+    depends_on:
+      - mongodb-booking
+    networks:
+      - common-network
+
+  # ApprovalService
+  mongodb-approval:
+    image: mongo:latest
+    container_name: mongodb-approval-container
+    ports:
+      - "27020:27017"
+    networks:
+      - common-network
+
+  approval-service:
+    build:
+      context: ./ApprovalService
+    container_name: approval-service-container
+    ports:
+      - "8085:8085"
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb-approval:27017/approval-service-db
+      - EVENT_SERVICE_URL=http://event-service:8083/api/events
+      - USER_SERVICE_URL=http://user-service:8081/api/users
+    depends_on:
+      - mongodb-approval
+    networks:
+      - common-network
+
+  # Keycloak for Authentication
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak-container
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+    ports:
+      - "8080:8080"
+    networks:
+      - common-network
+    command:
+      - start-dev
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./ApiGateway
+    container_name: api-gateway-container
+    ports:
+      - "8086:8080"
+    depends_on:
+      - keycloak
+      - user-service
+      - room-service-container
+      - event-service
+      - booking-service
+      - approval-service
+    environment:
+      - KEYCLOAK_URL=http://keycloak:8080
+    networks:
+      - common-network
